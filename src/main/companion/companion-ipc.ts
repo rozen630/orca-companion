@@ -15,6 +15,7 @@ import { getStructuredAgentSessionHost } from '../native-chat/agent-session-wire
 import { mainProcessState } from '../startup/main-process-state'
 import { isAdmissibleAgentJournalMessageBody } from '../../shared/agent-session-journal-schemas'
 import { parseWorkspaceKey } from '../../shared/workspace-scope'
+import { notifyReposChanged } from '../ipc/repos/repos-changed-notification'
 
 const writeSchema = z
   .object({
@@ -244,6 +245,9 @@ export function registerCompanionHandlers(): void {
             })
           } else if (existing.isArchived) {
             store.updateFolderWorkspace(existing.id, { isArchived: false })
+          }
+          if (!existing || existing.isArchived) {
+            notifyReposChanged(mainProcessState.mainWindow)
           }
         }
       }
