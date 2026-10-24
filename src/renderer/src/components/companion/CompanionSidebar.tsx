@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Heart, RefreshCw, Plus, Trash2, Settings2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { RefreshCw, Plus, Trash2, Settings2 } from 'lucide-react'
+import { scopedCompanionApi } from './scoped-companion-api'
 import { useAppStore } from '@/store'
 import { structuredChatTabBySessionId } from '@/lib/structured-chat-tab-index'
 import { readCompanionProfile } from '../../../../shared/companion-profile'
@@ -23,9 +24,16 @@ import type {
   CompanionWrite
 } from '../../../../shared/companion-api'
 
-export function CompanionSidebar(): React.JSX.Element | null {
-  const api = window.api.companion
-  const [open, setOpen] = useState(false)
+export function CompanionSidebar({
+  id,
+  initiallyOpen = false
+}: {
+  id: string
+  initiallyOpen?: boolean
+}): React.JSX.Element | null {
+  const manager = window.api.companion
+  const api = useMemo(() => (manager ? scopedCompanionApi(manager, id) : undefined), [manager, id])
+  const [open, setOpen] = useState(initiallyOpen)
   const [state, setState] = useState<CompanionState | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -103,14 +111,6 @@ export function CompanionSidebar(): React.JSX.Element | null {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium text-worktree-sidebar-foreground hover:bg-worktree-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Heart className="size-4" />
-        <span>伙伴</span>
-      </button>
       {state && (
         <div className="flex items-center gap-1 pl-4">
           <button
@@ -148,7 +148,7 @@ export function CompanionSidebar(): React.JSX.Element | null {
         >
           <SheetHeader>
             <SheetTitle>{name} · 资料与记忆</SheetTitle>
-            <SheetDescription>同一个伙伴，把记忆和进展留在身边。</SheetDescription>
+            <SheetDescription>此伙伴的专属聊天与本机长期记忆。</SheetDescription>
           </SheetHeader>
           <div className="flex min-h-0 flex-col gap-5 overflow-y-auto scrollbar-sleek p-4">
             {(error || state?.syncError) && (

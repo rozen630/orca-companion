@@ -13,16 +13,21 @@ export type CompanionState = {
 }
 
 export type CompanionApi = {
-  read: () => Promise<CompanionState>
-  prepare: () => Promise<CompanionState>
-  write: (input: CompanionWrite) => Promise<CompanionState>
-  chooseSyncDirectory: () => Promise<CompanionState>
-  disconnectSync: () => Promise<CompanionState>
-  sync: () => Promise<CompanionState>
-  prompt: () => Promise<string>
-  bind: (binding: {
-    sessionId: string
-    worktreeId: string
-    tabId: string
-  }) => Promise<CompanionState>
+  list: () => Promise<string[]>
+  create: (profile: { name: string; soul: string }) => Promise<string>
+  read: (id?: string) => Promise<CompanionState>
+  prepare: (id?: string) => Promise<CompanionState>
+  write: (input: CompanionWrite, id?: string) => Promise<CompanionState>
+  chooseSyncDirectory: (id?: string) => Promise<CompanionState>
+  disconnectSync: (id?: string) => Promise<CompanionState>
+  sync: (id?: string) => Promise<CompanionState>
+  prompt: (id?: string) => Promise<string>
+  bind: (
+    binding: {
+      sessionId: string
+      worktreeId: string
+      tabId: string
+    },
+    id?: string
+  ) => Promise<CompanionState>
 }

@@ -7,16 +7,18 @@ import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
 import type { CompanionApi } from '../../../../shared/companion-api'
 import { readCompanionProfile } from '../../../../shared/companion-profile'
 
-let opening: Promise<void> | null = null
+const openings = new WeakMap<CompanionApi, Promise<void>>()
 
 export function openCompanionChat(api: CompanionApi): Promise<void> {
+  const opening = openings.get(api)
   if (opening) {
     return opening
   }
-  opening = open(api).finally(() => {
-    opening = null
+  const next = open(api).finally(() => {
+    openings.delete(api)
   })
-  return opening
+  openings.set(api, next)
+  return next
 }
 
 async function open(api: CompanionApi): Promise<void> {

@@ -43,6 +43,8 @@ const state: CompanionState = {
 }
 function api(current = state): CompanionApi {
   return {
+    list: vi.fn(async () => ['default']),
+    create: vi.fn(async () => 'new-companion'),
     prepare: vi.fn(async () => current),
     read: vi.fn(async () => current),
     write: vi.fn(async () => current),
@@ -105,4 +107,26 @@ it('does not replace a persisted conversation when its host is temporarily unava
   await expect(openCompanionChat(bridge)).rejects.toThrow('Host unavailable')
   expect(mocks.launch).not.toHaveBeenCalled()
   expect(bridge.bind).not.toHaveBeenCalled()
+})
+
+it('does not coalesce different companions into the first companion conversation', async () => {
+  const first = api({
+    ...state,
+    canonical: { sessionId: 'first', worktreeId: 'folder:first', tabId: 'first-tab' }
+  })
+  const second = api({
+    ...state,
+    canonical: { sessionId: 'second', worktreeId: 'folder:second', tabId: 'second-tab' }
+  })
+  await Promise.all([openCompanionChat(first), openCompanionChat(second)])
+  expect(mocks.reveal).toHaveBeenCalledWith(
+    { structuredSession: { sessionId: 'first', workspaceId: 'folder:first' } },
+    undefined,
+    { kind: 'local' }
+  )
+  expect(mocks.reveal).toHaveBeenCalledWith(
+    { structuredSession: { sessionId: 'second', workspaceId: 'folder:second' } },
+    undefined,
+    { kind: 'local' }
+  )
 })
