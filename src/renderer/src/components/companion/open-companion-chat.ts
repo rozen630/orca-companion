@@ -5,6 +5,7 @@ import { activateAiVaultStructuredSession } from '@/lib/activate-ai-vault-struct
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
 import type { CompanionApi } from '../../../../shared/companion-api'
+import { readCompanionProfile } from '../../../../shared/companion-profile'
 
 let opening: Promise<void> | null = null
 
@@ -20,6 +21,10 @@ export function openCompanionChat(api: CompanionApi): Promise<void> {
 
 async function open(api: CompanionApi): Promise<void> {
   const current = await api.prepare()
+  const profile = current.records.find(
+    (record) => record.kind === 'profile' && record.key === 'identity' && !record.deleted
+  )
+  const name = readCompanionProfile(profile?.text).name
   if (current.canonical) {
     const state = useAppStore.getState()
     await state.fetchProjectGroups({ runtimeEnvironmentId: null, throwOnError: true })
@@ -58,7 +63,7 @@ async function open(api: CompanionApi): Promise<void> {
       (await useAppStore.getState().createFolderWorkspace(
         {
           projectGroupId: group.id,
-          name: '伙伴的家',
+          name,
           folderPath: current.home,
           connectionId: null,
           createdWithAgent: 'codex',

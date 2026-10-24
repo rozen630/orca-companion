@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Heart, RefreshCw, Plus, Trash2 } from 'lucide-react'
+import { Heart, RefreshCw, Plus, Trash2, Settings2 } from 'lucide-react'
+import { useAppStore } from '@/store'
+import { structuredChatTabBySessionId } from '@/lib/structured-chat-tab-index'
+import { readCompanionProfile } from '../../../../shared/companion-profile'
 import { Button } from '@/components/ui/button'
 import { CompanionProfile } from './CompanionProfile'
 import { hasMacTrafficLights } from '@/app-shell/app-window-chrome'
@@ -30,6 +33,8 @@ export function CompanionSidebar(): React.JSX.Element | null {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<{ record: CompanionRecord; text: string } | null>(null)
   const [kind, setKind] = useState<'memory' | 'task' | 'conversation'>('memory')
+  const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
+  const tabs = useAppStore((s) => s.unifiedTabsByWorktree)
   const run = useCallback(async (action: () => Promise<CompanionState>) => {
     setBusy(true)
     setError('')
@@ -42,11 +47,22 @@ export function CompanionSidebar(): React.JSX.Element | null {
     }
   }, [])
   useEffect(() => {
-    if (api && open) {
+    if (api) {
       void run(api.read)
     }
   }, [api, open, run])
   const profile = state?.records.find((r) => r.kind === 'profile' && r.key === 'identity')
+  const name = readCompanionProfile(profile?.deleted ? undefined : profile?.text).name
+  const canonical = state?.canonical
+  useEffect(() => {
+    if (!canonical) {
+      return
+    }
+    const tab = structuredChatTabBySessionId(tabs, canonical.worktreeId, canonical.sessionId)
+    if (tab && tab.customLabel !== name) {
+      useAppStore.getState().setTabCustomTitle(tab.id, name, { recordInteraction: false })
+    }
+  }, [canonical, name, tabs])
   if (!api) {
     return null
   }
@@ -75,9 +91,11 @@ export function CompanionSidebar(): React.JSX.Element | null {
     setError('')
     try {
       await openCompanionChat(api)
+      setState(await api.read())
       setOpen(false)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
+      setOpen(true)
     } finally {
       setBusy(false)
     }
@@ -93,6 +111,34 @@ export function CompanionSidebar(): React.JSX.Element | null {
         <Heart className="size-4" />
         <span>伙伴</span>
       </button>
+      {state && (
+        <div className="flex items-center gap-1 pl-4">
+          <button
+            type="button"
+            disabled={busy}
+            aria-label={`与${name}聊天`}
+            aria-current={canonical?.worktreeId === activeWorktreeId ? 'page' : undefined}
+            onClick={() => void chat()}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-worktree-sidebar-foreground hover:bg-worktree-sidebar-accent aria-[current=page]:bg-worktree-sidebar-accent disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span
+              aria-hidden
+              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-worktree-sidebar-accent text-xs"
+            >
+              {Array.from(name)[0]}
+            </span>
+            <span className="truncate">{name}</span>
+          </button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`${name}的资料与记忆`}
+            onClick={() => setOpen(true)}
+          >
+            <Settings2 className="size-4" />
+          </Button>
+        </div>
+      )}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="left"
@@ -101,7 +147,7 @@ export function CompanionSidebar(): React.JSX.Element | null {
           }
         >
           <SheetHeader>
-            <SheetTitle>你的 Orca 伙伴</SheetTitle>
+            <SheetTitle>{name} · 资料与记忆</SheetTitle>
             <SheetDescription>同一个伙伴，把记忆和进展留在身边。</SheetDescription>
           </SheetHeader>
           <div className="flex min-h-0 flex-col gap-5 overflow-y-auto scrollbar-sleek p-4">
