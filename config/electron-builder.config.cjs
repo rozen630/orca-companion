@@ -660,6 +660,7 @@ module.exports = {
     // explicit release path so production artifacts remain strict while dev
     // artifacts do not fail with broken ad-hoc launch behavior.
     hardenedRuntime: isMacRelease,
+    ...(!isMacRelease ? { identity: '-' } : {}),
     // Why dev builds notarize too, despite the ~10min notary round trip: TCC
     // anchors a notarized Developer ID app's permission grants on identifier +
     // team, which is cdhash-independent and so survives an update. Without a
