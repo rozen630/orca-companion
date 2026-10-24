@@ -50,6 +50,7 @@ export type CodexStructuredLaunch = {
   permissionPolicy?: CodexStructuredPermissionPolicy
   /** Open on the chosen model to avoid a first-turn switch. */
   model?: string
+  modelProvider?: string
   /** Sealed child environment; envToDelete removes inherited keys. */
   env?: Record<string, string>
   envToDelete?: readonly string[]

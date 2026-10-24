@@ -5,7 +5,10 @@ import { resolveAgainAfterRefreshOnMissingProgram } from '../native-chat/structu
 import type { StructuredAgentLaunchPartResolver } from '../runtime/structured-agent-launch-composition'
 import type { CodexStructuredLaunch } from './codex-structured-session-adapter'
 import { codexStructuredPermissionPolicy } from './codex-structured-permission-policy'
-import { codexStructuredLaunchArgs } from './codex-structured-launch-args'
+import {
+  codexStructuredLaunchArgs,
+  codexStructuredModelProvider
+} from './codex-structured-launch-args'
 import {
   LEGACY_NATIVE_CHAT_VISUALS_DIR_ENV,
   NATIVE_CHAT_SCRATCH_DIR_ENV,
@@ -73,6 +76,7 @@ export function codexStructuredLaunchPart(
     })
     const environment = await basis.environment()
     const args = codexStructuredLaunchArgs(await deps.resolveLaunchArgs())
+    const modelProvider = codexStructuredModelProvider(args)
     const head = agentSessionProviderHandleChainHead(record.providerHandleChain)
     const resumeThreadId = head?.handle.nativeId ?? null
     // Match the first turn's model to avoid duplicate prompt injection on a model switch.
@@ -90,6 +94,7 @@ export function codexStructuredLaunchPart(
         // Omitted policy fields would inherit the resumed thread's previous permissions.
         permissionPolicy: codexStructuredPermissionPolicy(basis.permissionMode ?? 'ask'),
         ...(model ? { model } : {}),
+        ...(modelProvider ? { modelProvider } : {}),
         ...(visuals ? { visuals } : {})
       },
       env: withNativeChatVisualsEnv(

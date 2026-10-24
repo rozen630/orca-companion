@@ -1,6 +1,7 @@
 import { CODEX_PERMISSION_CONFIG_ROOTS } from '../../shared/agent-permission-args'
 import { parseTomlKeyPath } from './config-toml-key-path'
 import { StructuredAgentArgumentsError } from '../native-chat/structured-agent-arguments-error'
+import { readCodexTopLevelModelProvider } from './codex-model-provider-config'
 
 const VALUE_OPTIONS = new Set([
   '-c',
@@ -41,6 +42,26 @@ const DROPPED_SWITCHES = new Set([
 ])
 
 const PASSTHROUGH_SWITCHES = new Set(['--search', '--oss', '--no-alt-screen', '--no-daemon'])
+
+export function codexStructuredModelProvider(tokens: readonly string[]): string | undefined {
+  let provider: string | undefined
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index]
+    const option = optionName(token)
+    if (option !== '-c' && option !== '--config') {
+      continue
+    }
+    const value = inlineValue(token, option) ?? tokens[++index]
+    if (!value) {
+      continue
+    }
+    const configured = readCodexTopLevelModelProvider(value)
+    if (configured) {
+      provider = configured
+    }
+  }
+  return provider
+}
 
 function optionName(token: string): string {
   if (token.startsWith('--')) {

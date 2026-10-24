@@ -49,6 +49,7 @@ export async function openCodexThread(
     permissionPolicy?: CodexStructuredPermissionPolicy
     /** Avoid a duplicate base prompt caused by switching models on the first turn. */
     model?: string
+    modelProvider?: string
     threadConfig?: Record<string, unknown>
     commandEnv?: Record<string, string>
   },
@@ -60,6 +61,7 @@ export async function openCodexThread(
   const config = { ...launch.threadConfig, ...shellEnvironmentSetConfig(launch.commandEnv) }
   const threadSettings = {
     cwd: launch.cwd,
+    ...(launch.modelProvider ? { modelProvider: launch.modelProvider } : {}),
     ...launch.permissionPolicy,
     ...(Object.keys(config).length > 0 ? { config } : {})
   }
@@ -76,7 +78,7 @@ export async function openCodexThread(
   if (!resumeThreadId) {
     opened = await startThread()
   } else {
-    // Omitting model preserves the resumed thread's model, provider and effort.
+    // Preserve the saved provider unless launch arguments explicitly select another.
     const resumeParams = {
       threadId: resumeThreadId,
       ...threadSettings

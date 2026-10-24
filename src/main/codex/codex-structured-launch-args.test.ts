@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { codexStructuredLaunchArgs } from './codex-structured-launch-args'
+import {
+  codexStructuredLaunchArgs,
+  codexStructuredModelProvider
+} from './codex-structured-launch-args'
 import { StructuredAgentArgumentsError } from '../native-chat/structured-agent-arguments-error'
 
 describe('codexStructuredLaunchArgs', () => {
+  it('selects the final explicit provider without treating nested provider settings as selection', () => {
+    expect(
+      codexStructuredModelProvider(
+        codexStructuredLaunchArgs([
+          '-c',
+          'model_provider="first"',
+          '--config=model_providers.first.name="First"',
+          '-cmodel_provider="tsd"'
+        ])
+      )
+    ).toBe('tsd')
+    expect(codexStructuredModelProvider(['-c', 'model="gpt-6-astra"'])).toBeUndefined()
+  })
   it('preserves root config and feature option order', () => {
     expect(
       codexStructuredLaunchArgs([

@@ -15,6 +15,28 @@ function connectionFor(
 }
 
 describe('openCodexThread', () => {
+  it('applies an explicit provider override when resuming a saved thread', async () => {
+    const request = vi.fn(async () => ({ thread: { id: 'thread-existing' } }))
+    await openCodexThread(
+      connectionFor(request),
+      {
+        cwd: '/workspace',
+        resumeThreadId: 'thread-existing',
+        modelProvider: 'tsd'
+      },
+      2000
+    )
+    expect(request).toHaveBeenCalledWith(
+      'thread/resume',
+      {
+        threadId: 'thread-existing',
+        cwd: '/workspace',
+        modelProvider: 'tsd',
+        excludeTurns: true
+      },
+      { timeoutMs: 2000 }
+    )
+  })
   it('applies the resolved permission policy when starting and resuming a thread', async () => {
     const request = vi.fn(async (method: string) => ({
       thread: { id: method === 'thread/start' ? 'thread-created' : 'thread-existing' }
