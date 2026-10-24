@@ -37,3 +37,6 @@ export function synchronize(
   note: string
 }>
 export function context(home: string): Promise<unknown>
+
+export function writeMemoryIndex(home: string): Promise<void>
+export function search(home: string, query: string): Promise<CompanionRecord[]>

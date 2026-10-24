@@ -4,6 +4,7 @@ export type { CompanionWrite, CompanionRecord }
 export type CompanionState = {
   records: CompanionRecord[]
   eventCount: number
+  canonical: { sessionId: string; worktreeId: string; tabId: string } | null
   home: string
   syncDirectory: string | null
   lastSync: string | null
@@ -13,6 +14,7 @@ export type CompanionState = {
 
 export type CompanionApi = {
   read: () => Promise<CompanionState>
+  prepare: () => Promise<CompanionState>
   write: (input: CompanionWrite) => Promise<CompanionState>
   chooseSyncDirectory: () => Promise<CompanionState>
   disconnectSync: () => Promise<CompanionState>

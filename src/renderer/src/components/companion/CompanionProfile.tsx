@@ -128,7 +128,9 @@ export function CompanionProfile({
           ? `已保存到本机 · ${new Date(profile.createdAt).toLocaleString()}`
           : '资料尚未保存。保存到本机不需要连接云盘。'}
       </p>
-      {!canChat && <p className="text-xs text-muted-foreground">先选择一个工作区，再开启聊天。</p>}
+      {!canChat && (
+        <p className="text-xs text-muted-foreground">本机聊天服务暂不可用，请稍后重试。</p>
+      )}
     </section>
   )
 }

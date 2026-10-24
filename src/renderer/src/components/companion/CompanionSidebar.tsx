@@ -3,6 +3,7 @@ import { Heart, RefreshCw, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CompanionProfile } from './CompanionProfile'
 import { hasMacTrafficLights } from '@/app-shell/app-window-chrome'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Sheet,
@@ -11,10 +12,8 @@ import {
   SheetTitle,
   SheetDescription
 } from '@/components/ui/sheet'
-import { useAppStore } from '@/store'
-import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
+import { openCompanionChat } from './open-companion-chat'
 import { createBrowserUuid } from '@/lib/browser-uuid'
-import { newAgentLaunchRequestId } from '@/lib/agent-launch-request-id'
 import type {
   CompanionRecord,
   CompanionState,
@@ -28,8 +27,9 @@ export function CompanionSidebar(): React.JSX.Element | null {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState('')
+  const [query, setQuery] = useState('')
+  const [editing, setEditing] = useState<{ record: CompanionRecord; text: string } | null>(null)
   const [kind, setKind] = useState<'memory' | 'task' | 'conversation'>('memory')
-  const worktreeId = useAppStore((s) => s.activeWorktreeId)
   const run = useCallback(async (action: () => Promise<CompanionState>) => {
     setBusy(true)
     setError('')
@@ -51,7 +51,12 @@ export function CompanionSidebar(): React.JSX.Element | null {
     return null
   }
   const records =
-    state?.records.filter((r) => (!r.deleted || r.conflicts.length > 0) && r.kind === kind) ?? []
+    state?.records.filter(
+      (r) =>
+        (!r.deleted || r.conflicts.length > 0) &&
+        r.kind === kind &&
+        r.text.toLocaleLowerCase().includes(query.toLocaleLowerCase())
+    ) ?? []
   const write = (input: CompanionWrite): Promise<void> => run(() => api.write(input))
   const remove = (record: CompanionRecord): Promise<void> =>
     write({
@@ -63,55 +68,13 @@ export function CompanionSidebar(): React.JSX.Element | null {
       deleted: true
     })
   async function chat(): Promise<void> {
-    if (!worktreeId || !api) {
+    if (!api) {
       return
     }
     setBusy(true)
     setError('')
     try {
-      const current = await api.read()
-      const store = useAppStore.getState()
-      const bound = current.bindings.findLast(
-        (binding) =>
-          binding.worktreeId === worktreeId &&
-          (store.tabsByWorktree[worktreeId] ?? []).some((tab) => tab.id === binding.tabId)
-      )
-      if (bound) {
-        store.setActiveTab(bound.tabId)
-        setOpen(false)
-        return
-      }
-      const prompt = await api.prompt()
-      const result = launchAgentInNewTab({
-        requestId: newAgentLaunchRequestId(),
-        agent: 'codex',
-        worktreeId,
-        prompt,
-        promptDelivery: 'auto-submit',
-        requestedSurface: 'chat'
-      })
-      if (!result) {
-        throw new Error('无法启动伙伴聊天，请先配置 Codex 账号。')
-      }
-      if (result.structuredSettlement) {
-        const settlement = await result.structuredSettlement
-        if (settlement.kind === 'failed') {
-          throw settlement.error
-        }
-        if (settlement.kind === 'cancelled') {
-          throw new Error('聊天启动已取消')
-        }
-        if (settlement.kind !== 'structured' || result.surface.kind !== 'local-chat') {
-          throw new Error('此聊天未绑定到本机伙伴记录；当前版本仅同步本机原生聊天。')
-        }
-        setState(
-          await api.bind({
-            sessionId: settlement.sessionId,
-            worktreeId,
-            tabId: result.surface.tabId
-          })
-        )
-      }
+      await openCompanionChat(api)
       setOpen(false)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
@@ -119,6 +82,7 @@ export function CompanionSidebar(): React.JSX.Element | null {
       setBusy(false)
     }
   }
+
   return (
     <>
       <button
@@ -150,7 +114,7 @@ export function CompanionSidebar(): React.JSX.Element | null {
               key={profile?.deleted ? 'new' : (profile?.text ?? 'new')}
               profile={profile}
               busy={busy}
-              canChat={Boolean(worktreeId)}
+              canChat={true}
               onWrite={write}
               onChat={chat}
             />
@@ -187,6 +151,12 @@ export function CompanionSidebar(): React.JSX.Element | null {
                   <RefreshCw className="size-4" />
                 </Button>
               </div>
+              <Input
+                aria-label="搜索本机记录"
+                placeholder="搜索本机记录"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
               {kind !== 'conversation' && (
                 <Textarea
                   aria-label={kind === 'memory' ? '新记忆' : '新待办'}
@@ -219,18 +189,73 @@ export function CompanionSidebar(): React.JSX.Element | null {
                 </Button>
               )}
               {records.length === 0 && (
-                <p className="text-sm text-muted-foreground">这里还没有记录。</p>
+                <p className="text-sm text-muted-foreground">
+                  {query ? '没有找到匹配的记录。' : '这里还没有记录。'}
+                </p>
               )}
               {records.map((record) => (
-                <article key={record.id} className="space-y-2 rounded-md border border-border p-3">
+                <article
+                  key={`${record.kind}:${record.key}`}
+                  className="space-y-2 rounded-md border border-border p-3"
+                >
                   {kind === 'conversation' && (
                     <p className="text-xs text-muted-foreground">
                       {record.source === 'user' ? '你' : '伙伴'}
                     </p>
                   )}
-                  <p className="whitespace-pre-wrap break-words text-sm">
-                    {record.deleted ? '此设备删除了这条记录' : record.text}
-                  </p>
+                  {editing?.record.key === record.key && editing.record.kind === record.kind ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        aria-label="编辑记录"
+                        value={editing.text}
+                        maxLength={10000}
+                        onChange={(e) => setEditing({ ...editing, text: e.target.value })}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          disabled={busy || !editing.text.trim()}
+                          onClick={() =>
+                            void run(async () => {
+                              const next = await api.write({
+                                kind: editing.record.kind,
+                                key: editing.record.key,
+                                text: editing.text,
+                                source: '用户在伙伴侧栏修改',
+                                parents: editing.record.heads
+                              })
+                              setEditing(null)
+                              return next
+                            })
+                          }
+                        >
+                          保存修改
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy}
+                          onClick={() => setEditing(null)}
+                        >
+                          取消
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words text-sm">
+                      {record.deleted ? '此设备删除了这条记录' : record.text}
+                    </p>
+                  )}
+                  {kind !== 'conversation' && !record.deleted && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => setEditing({ record, text: record.text })}
+                    >
+                      编辑
+                    </Button>
+                  )}
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground">
                       {new Date(record.createdAt).toLocaleString()}
@@ -278,8 +303,11 @@ export function CompanionSidebar(): React.JSX.Element | null {
                 </article>
               ))}
             </section>
-            <section className="space-y-3 border-t border-border pt-4">
-              <h3 className="text-sm font-medium">云同步</h3>
+            <p className="text-xs text-muted-foreground">
+              资料和长期记忆保存在本机，退出或重启后仍可读取。伙伴使用自己的工作区，不需要选择项目。
+            </p>
+            <details className="space-y-3 border-t border-border pt-4">
+              <summary className="cursor-pointer text-sm font-medium">可选：云盘文件同步</summary>
               <p className="break-all text-xs text-muted-foreground">
                 {state?.syncDirectory ??
                   '尚未连接云盘文件夹。选择后，每 30 秒自动交换伙伴资料、记忆、待办和聊天文字。不上传工具日志、思考或附件。'}
@@ -318,7 +346,7 @@ export function CompanionSidebar(): React.JSX.Element | null {
                 云端上传进度由 iCloud /
                 云盘客户端管理。断开同步不会删除云端副本。删除记录会同步删除标记，历史版本仍保留在文件夹中。
               </p>
-            </section>
+            </details>
           </div>
         </SheetContent>
       </Sheet>

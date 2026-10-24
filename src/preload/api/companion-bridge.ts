@@ -3,6 +3,7 @@ import type { CompanionApi } from '../../shared/companion-api'
 
 export const companionApi: CompanionApi = {
   read: () => ipcRenderer.invoke('companion:read'),
+  prepare: () => ipcRenderer.invoke('companion:prepare'),
   write: (input) => ipcRenderer.invoke('companion:write', input),
   chooseSyncDirectory: () => ipcRenderer.invoke('companion:chooseSyncDirectory'),
   disconnectSync: () => ipcRenderer.invoke('companion:disconnectSync'),
