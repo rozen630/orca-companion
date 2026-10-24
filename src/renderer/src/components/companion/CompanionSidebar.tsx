@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Heart, RefreshCw, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CompanionProfile } from './CompanionProfile'
+import { hasMacTrafficLights } from '@/app-shell/app-window-chrome'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Sheet,
@@ -129,7 +130,12 @@ export function CompanionSidebar(): React.JSX.Element | null {
         <span>伙伴</span>
       </button>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left">
+        <SheetContent
+          side="left"
+          className={
+            hasMacTrafficLights ? 'top-[calc(36px/var(--ui-zoom-factor,1))] h-auto' : undefined
+          }
+        >
           <SheetHeader>
             <SheetTitle>你的 Orca 伙伴</SheetTitle>
             <SheetDescription>同一个伙伴，把记忆和进展留在身边。</SheetDescription>
