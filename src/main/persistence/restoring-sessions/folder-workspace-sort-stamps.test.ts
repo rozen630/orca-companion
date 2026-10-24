@@ -22,6 +22,23 @@ function createOperations() {
 }
 
 describe('folder workspace sort stamps', () => {
+  it('restores a missing workspace identity without replacing an existing workspace', () => {
+    const operations = createOperations()
+    const restored = operations.createFolderWorkspace({
+      projectGroupId: 'group-1',
+      restoreId: 'saved-companion-workspace'
+    })
+    expect(operations.getFolderWorkspace('saved-companion-workspace')).toEqual(restored)
+    expect(() =>
+      operations.createFolderWorkspace({
+        projectGroupId: 'group-1',
+        restoreId: restored.id,
+        name: 'replacement'
+      })
+    ).toThrow('Folder workspace already exists.')
+    expect(operations.getFolderWorkspaces()).toEqual([restored])
+  })
+
   it('stamps creation as the first Recent stamp', () => {
     vi.useFakeTimers({ now: 5_000 })
     try {

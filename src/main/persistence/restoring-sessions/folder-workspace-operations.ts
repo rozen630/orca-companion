@@ -59,6 +59,7 @@ export class FolderWorkspacePersistenceOperations {
   }
 
   createFolderWorkspace(input: {
+    restoreId?: string
     projectGroupId: string
     name?: string
     folderPath?: string | null
@@ -70,6 +71,9 @@ export class FolderWorkspacePersistenceOperations {
     createdWithAgent?: FolderWorkspace['createdWithAgent']
     pendingFirstAgentMessageRename?: boolean
   }): FolderWorkspace {
+    if (input.restoreId && this.getFolderWorkspace(input.restoreId)) {
+      throw new Error('Folder workspace already exists.')
+    }
     const group = (this.state.projectGroups ?? []).find(
       (entry) => entry.id === input.projectGroupId
     )
@@ -93,7 +97,7 @@ export class FolderWorkspacePersistenceOperations {
             linkedTaskSourceContext: sourceContext
           })
     const workspace: FolderWorkspace = {
-      id: randomUUID(),
+      id: input.restoreId ?? randomUUID(),
       projectGroupId: group.id,
       name: normalizeFolderWorkspaceName(input.name, `${group.name} workspace`),
       folderPath,

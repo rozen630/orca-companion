@@ -5,6 +5,8 @@ import { openCompanionChat } from './open-companion-chat'
 const mocks = vi.hoisted(() => ({
   createGroup: vi.fn(),
   createWorkspace: vi.fn(),
+  fetchGroups: vi.fn(),
+  fetchWorkspaces: vi.fn(),
   activate: vi.fn(),
   reveal: vi.fn(),
   launch: vi.fn()
@@ -16,7 +18,9 @@ vi.mock('@/store', () => ({
       projectGroups: [],
       activeWorktreeId: null,
       createProjectGroup: mocks.createGroup,
-      createFolderWorkspace: mocks.createWorkspace
+      createFolderWorkspace: mocks.createWorkspace,
+      fetchProjectGroups: mocks.fetchGroups,
+      fetchFolderWorkspaces: mocks.fetchWorkspaces
     })
   }
 }))

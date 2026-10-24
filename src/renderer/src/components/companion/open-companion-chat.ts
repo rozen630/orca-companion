@@ -21,6 +21,9 @@ export function openCompanionChat(api: CompanionApi): Promise<void> {
 async function open(api: CompanionApi): Promise<void> {
   const current = await api.prepare()
   if (current.canonical) {
+    const state = useAppStore.getState()
+    await state.fetchProjectGroups({ runtimeEnvironmentId: null, throwOnError: true })
+    await state.fetchFolderWorkspaces({ runtimeEnvironmentId: null, throwOnError: true })
     await activateAiVaultStructuredSession(
       {
         structuredSession: {

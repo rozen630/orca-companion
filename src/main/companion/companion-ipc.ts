@@ -14,6 +14,7 @@ import type { CompanionState } from '../../shared/companion-api'
 import { getStructuredAgentSessionHost } from '../native-chat/agent-session-wire/structured-agent-session-registry'
 import { mainProcessState } from '../startup/main-process-state'
 import { isAdmissibleAgentJournalMessageBody } from '../../shared/agent-session-journal-schemas'
+import { parseWorkspaceKey } from '../../shared/workspace-scope'
 
 const writeSchema = z
   .object({
@@ -218,6 +219,34 @@ export function registerCompanionHandlers(): void {
         await copyFile(join(source, file), join(scripts, file))
       }
       await writeMemoryIndex(home())
+      const config = await settings()
+      if (config.canonical) {
+        const store = mainProcessState.store
+        if (!store) {
+          throw new Error('本机工作区尚未就绪，请稍后重试。')
+        }
+        const scope = parseWorkspaceKey(config.canonical.worktreeId)
+        if (scope?.type === 'folder') {
+          const existing = store.getFolderWorkspace(scope.folderWorkspaceId)
+          if (!existing) {
+            const group =
+              store
+                .getProjectGroups()
+                .find((entry) => entry.name === '我的伙伴' && !entry.connectionId) ??
+              store.createProjectGroup({ name: '我的伙伴', createdFrom: 'manual' })
+            store.createFolderWorkspace({
+              restoreId: scope.folderWorkspaceId,
+              projectGroupId: group.id,
+              name: '伙伴的家',
+              folderPath: home(),
+              connectionId: null,
+              createdWithAgent: 'codex'
+            })
+          } else if (existing.isArchived) {
+            store.updateFolderWorkspace(existing.id, { isArchived: false })
+          }
+        }
+      }
       try {
         await writeFile(
           join(home(), 'AGENTS.md'),
