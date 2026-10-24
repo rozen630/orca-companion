@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Heart, RefreshCw, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { CompanionProfile } from './CompanionProfile'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Sheet,
@@ -26,8 +26,6 @@ export function CompanionSidebar(): React.JSX.Element | null {
   const [state, setState] = useState<CompanionState | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [name, setName] = useState('小鲸')
-  const [soul, setSoul] = useState('坦诚、温暖、主动推进事情。默认用中文交流。')
   const [draft, setDraft] = useState('')
   const [kind, setKind] = useState<'memory' | 'task' | 'conversation'>('memory')
   const worktreeId = useAppStore((s) => s.activeWorktreeId)
@@ -48,27 +46,6 @@ export function CompanionSidebar(): React.JSX.Element | null {
     }
   }, [api, open, run])
   const profile = state?.records.find((r) => r.kind === 'profile' && r.key === 'identity')
-  useEffect(() => {
-    if (!profile || profile.deleted) {
-      return
-    }
-    try {
-      const value: unknown = JSON.parse(profile.text)
-      if (
-        value &&
-        typeof value === 'object' &&
-        'name' in value &&
-        typeof value.name === 'string' &&
-        'soul' in value &&
-        typeof value.soul === 'string'
-      ) {
-        setName(value.name)
-        setSoul(value.soul)
-      }
-    } catch {
-      setError('伙伴资料格式有误，请检查保存的内容。')
-    }
-  }, [profile])
   if (!api) {
     return null
   }
@@ -163,68 +140,14 @@ export function CompanionSidebar(): React.JSX.Element | null {
                 {error || state?.syncError}
               </p>
             )}
-            <section className="space-y-3">
-              <label className="block space-y-1 text-sm">
-                名字
-                <Input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
-              </label>
-              <label className="block space-y-1 text-sm">
-                性格与协作方式
-                <Textarea value={soul} maxLength={4000} onChange={(e) => setSoul(e.target.value)} />
-              </label>
-              {profile && profile.conflicts.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    资料有并发修改。请选择版本，或修改上方内容后保存：
-                  </p>
-                  {[profile, ...profile.conflicts].map((version) => (
-                    <Button
-                      key={version.id}
-                      variant="outline"
-                      size="sm"
-                      className="h-auto whitespace-normal"
-                      disabled={busy}
-                      onClick={() =>
-                        void write({
-                          kind: 'profile',
-                          key: 'identity',
-                          text: version.text,
-                          deleted: version.deleted,
-                          parents: profile.heads,
-                          source: '用户解决资料冲突'
-                        })
-                      }
-                    >
-                      {version.deleted ? '保留删除' : version.text.slice(0, 100)}
-                    </Button>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy || !name.trim()}
-                  onClick={() =>
-                    void write({
-                      kind: 'profile',
-                      key: 'identity',
-                      text: JSON.stringify({ name, soul }),
-                      source: '用户在伙伴侧栏设置',
-                      parents: profile?.heads ?? []
-                    })
-                  }
-                >
-                  保存资料
-                </Button>
-                <Button size="sm" disabled={busy || !worktreeId} onClick={() => void chat()}>
-                  与伙伴聊天
-                </Button>
-              </div>
-              {!worktreeId && (
-                <p className="text-xs text-muted-foreground">先选择一个工作区，再开启聊天。</p>
-              )}
-            </section>
+            <CompanionProfile
+              key={profile?.deleted ? 'new' : (profile?.text ?? 'new')}
+              profile={profile}
+              busy={busy}
+              canChat={Boolean(worktreeId)}
+              onWrite={write}
+              onChat={chat}
+            />
             <section className="space-y-3 border-t border-border pt-4">
               <div className="flex gap-2">
                 <Button
