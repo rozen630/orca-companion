@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { companionApi } from './api/companion-bridge'
 import type { PreloadApi } from './api-types'
 import { installBrowserFindListener } from './preload-runtime-support'
 import { appApi } from './api/app-bridge'
@@ -98,6 +99,7 @@ const telemetryGetConsentStateApi: PreloadApi['telemetryGetConsentState'] = () =
   ipcRenderer.invoke('telemetry:getConsentState')
 
 const api = {
+  companion: companionApi,
   app: appApi,
   orcaProfiles: orcaProfilesApi,
   platform: platformApi,

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { chmodSync, copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, mkdirSync, rmSync, writeFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 
 const repoRoot = path.resolve(import.meta.dirname, '../..')
@@ -14,7 +14,8 @@ const entitlementsPath = path.join(
   'build',
   'entitlements.computer-use.mac.plist'
 )
-const bundleId = process.env.ORCA_COMPUTER_MACOS_BUNDLE_ID ?? 'com.stablyai.orca.computer-use'
+const bundleId =
+  process.env.ORCA_COMPUTER_MACOS_BUNDLE_ID ?? 'com.rozen630.orca-companion.computer-use'
 const displayName = 'Orca Computer Use'
 const signingIdentity = resolveSigningIdentity()
 const universalTriples = ['arm64-apple-macosx', 'x86_64-apple-macosx']
@@ -29,7 +30,49 @@ createHelperApp()
 
 function buildUniversalBinary() {
   const builtBinaries = universalTriples.map((triple) => {
-    run('swift', ['build', '-c', 'release', '--package-path', packagePath, '--triple', triple])
+    if (process.env.ORCA_SWIFT_DIRECT === '1') {
+      const output = path.join(packagePath, '.build', triple, 'release')
+      const core = path.join(packagePath, 'Sources', 'OrcaComputerUseMacOSCore')
+      mkdirSync(output, { recursive: true })
+      const target = triple.replace('-apple-macosx', '-apple-macosx14.0')
+      run('swiftc', [
+        '-O',
+        '-swift-version',
+        '6',
+        '-target',
+        target,
+        '-parse-as-library',
+        '-emit-library',
+        '-static',
+        '-emit-module',
+        '-module-name',
+        'OrcaComputerUseMacOSCore',
+        '-emit-module-path',
+        path.join(output, 'OrcaComputerUseMacOSCore.swiftmodule'),
+        ...readdirSync(core)
+          .filter((file) => file.endsWith('.swift'))
+          .map((file) => path.join(core, file)),
+        '-o',
+        path.join(output, 'libOrcaComputerUseMacOSCore.a')
+      ])
+      run('swiftc', [
+        '-O',
+        '-swift-version',
+        '6',
+        '-target',
+        target,
+        '-I',
+        output,
+        '-L',
+        output,
+        '-lOrcaComputerUseMacOSCore',
+        path.join(packagePath, 'Sources', 'OrcaComputerUseMacOS', 'main.swift'),
+        '-o',
+        path.join(output, 'orca-computer-use-macos')
+      ])
+    } else {
+      run('swift', ['build', '-c', 'release', '--package-path', packagePath, '--triple', triple])
+    }
     return path.join(packagePath, '.build', triple, 'release', 'orca-computer-use-macos')
   })
   mkdirSync(path.dirname(binaryPath), { recursive: true })

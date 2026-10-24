@@ -1,4 +1,5 @@
 import React from 'react'
+import { CompanionSidebar } from '../companion/CompanionSidebar'
 import { BookOpen, CalendarClock, EyeOff, Files, Search, Smartphone } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
@@ -118,6 +119,7 @@ const SidebarNav = React.memo(function SidebarNav() {
         </span>
       </button>
       <SetupGuideSidebarEntry />
+      <CompanionSidebar />
       <SidebarTaskNavButton />
       {showArtifactsButton ? (
         <ContextMenu>

@@ -38,19 +38,20 @@ export type UpdaterSetupOptions = {
 /** Initializes electron-updater and attaches lifecycle/event bridges. */
 export class UpdaterSetup extends UpdaterDownloadInstall {
   checkForUpdates(): void {
-    this.checkForUpdatesInBackground()
+    this.sendErrorStatus('Orca Companion 使用独立安装包更新；请先合并 upstream 并重新构建。', true)
   }
 
   checkForUpdatesFromMenu(options?: UpdateCheckOptions): void {
-    super.checkForUpdatesFromMenu(options)
+    void options
+    this.checkForUpdates()
   }
 
   downloadUpdate(): void {
-    super.downloadUpdate()
+    this.checkForUpdates()
   }
 
   quitAndInstall(): void {
-    super.quitAndInstall()
+    this.checkForUpdates()
   }
 
   isQuittingForUpdate(): boolean {
@@ -100,7 +101,9 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
     channel: ReleaseChannel,
     options?: ReleaseBuildListOptions
   ): Promise<ReleaseBuild[]> {
-    return super.listAvailableReleaseBuilds(channel, options)
+    void channel
+    void options
+    return []
   }
 
   dismissNudge(): void {
@@ -136,7 +139,8 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
       this.sendErrorStatus(`The server update did not complete: ${serveHandoffFailure}`, true)
     }
 
-    if (!app.isPackaged) {
+    // Companion builds must never replace themselves with an upstream installer.
+    if (app.getName().startsWith('Orca Companion') || !app.isPackaged) {
       return
     }
 
