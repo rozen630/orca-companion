@@ -22,6 +22,12 @@ import {
   BundledSkillExecuteRequestSchema,
   BundledSkillPlanRequestSchema
 } from '../bundled-skill-plan'
+import {
+  CompanionGroupSendParams,
+  CompanionIdParams,
+  CompanionListParams,
+  CompanionWriteParams
+} from '../companion-rpc-contract'
 import { DelegatedMobileDeviceSyncParamsSchema } from '../delegated-mobile-device-contract'
 import {
   DesktopBrowserBridgeAttachParams,
@@ -886,6 +892,12 @@ export const RPC_PARAMS_BY_METHOD = {
   'clipboard.commitImageUpload': CommitImageUpload,
   'clipboard.saveImageAsTempFile': SaveImageAsTempFile,
   'clipboard.startImageUpload': StartImageUpload,
+  'companion.groups.list': CompanionListParams,
+  'companion.groups.send': CompanionGroupSendParams,
+  'companion.groups.stop': CompanionIdParams,
+  'companion.list': CompanionListParams,
+  'companion.read': CompanionIdParams,
+  'companion.write': CompanionWriteParams,
   'computer.capabilities': ComputerCapabilitiesParams,
   'computer.click': Click,
   'computer.drag': DragOfComputerSchemasParams,

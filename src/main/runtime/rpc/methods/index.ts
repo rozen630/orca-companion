@@ -1,3 +1,4 @@
+import { COMPANION_METHODS } from './companion'
 import { STATUS_METHODS } from './status'
 import { SIDEBAR_INPUT_METHODS } from './sidebar-inputs'
 import { ORCAD_TERMINAL_CENSUS_METHODS } from './orcad-terminal-census'
@@ -77,6 +78,7 @@ import { ORCA_SIDEBAR_INPUTS_IS_MAIN } from '../../../../shared/sidebar-inputs-s
 // grep-point for "what methods does the RPC server expose?" — useful when
 // auditing the security boundary or wiring new CLI commands.
 export const ALL_RPC_METHODS = [
+  ...COMPANION_METHODS,
   ...STATUS_METHODS,
   ...ORCAD_TERMINAL_CENSUS_METHODS,
   ...ORCAD_MIGRATION_METHODS,

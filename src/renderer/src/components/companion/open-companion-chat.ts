@@ -1,3 +1,4 @@
+import { companionPreferences } from '../../../../shared/companion-preferences'
 import { useAppStore } from '@/store'
 import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
 import { newAgentLaunchRequestId } from '@/lib/agent-launch-request-id'
@@ -23,6 +24,10 @@ export function openCompanionChat(api: CompanionApi): Promise<void> {
 
 async function open(api: CompanionApi): Promise<void> {
   const current = await api.prepare()
+  const preferences = companionPreferences(current.records)
+  if (preferences.status !== 'active') {
+    throw new Error('请先恢复此伙伴，再开启聊天。')
+  }
   const profile = current.records.find(
     (record) => record.kind === 'profile' && record.key === 'identity' && !record.deleted
   )
@@ -68,7 +73,7 @@ async function open(api: CompanionApi): Promise<void> {
           name,
           folderPath: current.home,
           connectionId: null,
-          createdWithAgent: 'codex',
+          createdWithAgent: preferences.agent,
           pendingFirstAgentMessageRename: false
         },
         { runtimeEnvironmentId: null }
@@ -85,7 +90,8 @@ async function open(api: CompanionApi): Promise<void> {
   const prompt = await api.prompt()
   const result = launchAgentInNewTab({
     requestId: newAgentLaunchRequestId(),
-    agent: 'codex',
+    agent: preferences.agent,
+    agentArgs: preferences.model ? `--model ${JSON.stringify(preferences.model)}` : undefined,
     worktreeId,
     prompt,
     promptDelivery: 'auto-submit',

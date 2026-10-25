@@ -1,3 +1,5 @@
+import type { CompanionRoutinesApi } from './companion-routines'
+import type { CompanionGroupsApi } from './companion-groups'
 import type { CompanionWrite, CompanionRecord } from '../../resources/companion/store.mjs'
 export type { CompanionWrite, CompanionRecord }
 
@@ -13,6 +15,13 @@ export type CompanionState = {
 }
 
 export type CompanionApi = {
+  saveSkill: (
+    input: { name: string; instruction: string; enabled: boolean },
+    id?: string
+  ) => Promise<CompanionState>
+  groups: CompanionGroupsApi
+  routines: CompanionRoutinesApi
+  duplicate: (id: string) => Promise<string>
   list: () => Promise<string[]>
   create: (profile: { name: string; soul: string }) => Promise<string>
   read: (id?: string) => Promise<CompanionState>

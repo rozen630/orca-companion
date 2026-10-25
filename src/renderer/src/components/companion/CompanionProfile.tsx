@@ -9,7 +9,7 @@ type CompanionProfileProps = {
   profile: CompanionRecord | undefined
   busy: boolean
   canChat: boolean
-  onWrite: (input: CompanionWrite) => Promise<void>
+  onWrite: (input: CompanionWrite) => Promise<unknown>
   onChat: () => Promise<void>
 }
 

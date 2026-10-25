@@ -1,3 +1,4 @@
+import { companionPreferencesSchema } from '../../shared/companion-preferences'
 import { app, dialog } from 'electron'
 import { join } from 'node:path'
 import { mkdir, readFile, writeFile, copyFile, rename } from 'node:fs/promises'
@@ -45,7 +46,7 @@ const settingsSchema = z.object({
 export function createCompanionService(
   directory: string,
   id = 'default'
-): Omit<CompanionApi, 'list' | 'create'> {
+): Omit<CompanionApi, 'list' | 'create' | 'duplicate' | 'groups' | 'routines' | 'saveSkill'> {
   let queue: Promise<unknown> = Promise.resolve()
   let syncError: string | null = null
   const home = (): string => directory
@@ -160,7 +161,11 @@ export function createCompanionService(
     read: () => serial(read),
     write: (input) =>
       serial(async () => {
-        await put(home(), writeSchema.parse(input))
+        const parsed = writeSchema.parse(input)
+        if (parsed.kind === 'profile' && parsed.key === 'preferences' && !parsed.deleted) {
+          companionPreferencesSchema.parse(JSON.parse(parsed.text))
+        }
+        await put(home(), parsed)
         return read()
       }),
     chooseSyncDirectory: () =>

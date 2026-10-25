@@ -2,6 +2,10 @@ import type { CompanionApi } from '../../../../shared/companion-api'
 
 export function scopedCompanionApi(api: CompanionApi, id: string): CompanionApi {
   return {
+    saveSkill: (input) => api.saveSkill(input, id),
+    routines: api.routines,
+    groups: api.groups,
+    duplicate: api.duplicate,
     list: api.list,
     create: api.create,
     read: () => api.read(id),

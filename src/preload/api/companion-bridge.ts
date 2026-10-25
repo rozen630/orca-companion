@@ -2,6 +2,23 @@ import { ipcRenderer } from 'electron'
 import type { CompanionApi } from '../../shared/companion-api'
 
 export const companionApi: CompanionApi = {
+  saveSkill: (input, id) => ipcRenderer.invoke('companion:saveSkill', input, id),
+  routines: {
+    list: (id) => ipcRenderer.invoke('companion:routines:list', id),
+    save: (input) => ipcRenderer.invoke('companion:routines:save', input),
+    run: (id) => ipcRenderer.invoke('companion:routines:run', id),
+    stop: (id) => ipcRenderer.invoke('companion:routines:stop', id),
+    remove: (id) => ipcRenderer.invoke('companion:routines:remove', id),
+    undo: (id, key) => ipcRenderer.invoke('companion:routines:undo', id, key)
+  },
+  groups: {
+    list: () => ipcRenderer.invoke('companion:groups:list'),
+    save: (input) => ipcRenderer.invoke('companion:groups:save', input),
+    send: (id, text, mentions, delegate) =>
+      ipcRenderer.invoke('companion:groups:send', id, text, mentions, delegate),
+    stop: (id) => ipcRenderer.invoke('companion:groups:stop', id)
+  },
+  duplicate: (id) => ipcRenderer.invoke('companion:duplicate', id),
   list: () => ipcRenderer.invoke('companion:list'),
   create: (profile) => ipcRenderer.invoke('companion:create', profile),
   read: (id) => ipcRenderer.invoke('companion:read', id),

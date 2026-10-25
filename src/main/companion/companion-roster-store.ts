@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile, rename } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { put } from '../../../resources/companion/store.mjs'
+import { put, snapshot } from '../../../resources/companion/store.mjs'
 
 const rosterSchema = z.array(z.string().uuid()).max(100)
 const profileSchema = z
@@ -34,6 +34,15 @@ export class CompanionRosterStore {
       throw new Error('伙伴不存在，请刷新列表。')
     }
     return id === 'default' ? join(this.root, 'companion') : join(this.root, 'companion-homes', id)
+  }
+
+  async duplicate(input: unknown): Promise<string> {
+    const records = (await snapshot(await this.home(input))).records
+    const identity = records.find((r) => r.kind === 'profile' && r.key === 'identity' && !r.deleted)
+    const profile = identity
+      ? profileSchema.parse(JSON.parse(identity.text))
+      : { name: '小鲸', soul: '' }
+    return this.create({ ...profile, name: `${profile.name.slice(0, 75)} 副本` })
   }
 
   create(input: unknown): Promise<string> {

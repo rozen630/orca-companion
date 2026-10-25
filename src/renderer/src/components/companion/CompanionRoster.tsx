@@ -1,3 +1,6 @@
+import { CompanionGroups } from './CompanionGroups'
+import type { CompanionState } from '../../../../shared/companion-api'
+import { companionPreferences, companionActivity } from '../../../../shared/companion-preferences'
 import { useEffect, useState } from 'react'
 import { Heart, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,6 +19,9 @@ import { CompanionSidebar } from './CompanionSidebar'
 export function CompanionRoster(): React.JSX.Element | null {
   const api = window.api.companion
   const [ids, setIds] = useState<string[]>([])
+  const [states, setStates] = useState<Record<string, CompanionState>>({})
+  const [filter, setFilter] = useState('active')
+  const [query, setQuery] = useState('')
   const [newId, setNewId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -23,11 +29,37 @@ export function CompanionRoster(): React.JSX.Element | null {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => {
-    if (api) {
-      void api
-        .list()
-        .then(setIds)
-        .catch((cause: unknown) => setError(String(cause)))
+    if (!api) {
+      return
+    }
+    let disposed = false
+    async function refresh() {
+      if (!api) {
+        return
+      }
+      try {
+        const ids = await api.list()
+        const entries = await Promise.all(ids.map(async (id) => [id, await api.read(id)] as const))
+        if (!disposed) {
+          setIds(ids)
+          setStates(Object.fromEntries(entries))
+        }
+      } catch (cause) {
+        if (!disposed) {
+          setError(String(cause))
+        }
+      }
+    }
+    void refresh()
+    const update = () => {
+      void refresh()
+    }
+    window.addEventListener('companion-roster-changed', update)
+    const timer = window.setInterval(update, 10000)
+    return () => {
+      disposed = true
+      clearInterval(timer)
+      window.removeEventListener('companion-roster-changed', update)
     }
   }, [api])
   if (!api) {
@@ -43,6 +75,7 @@ export function CompanionRoster(): React.JSX.Element | null {
       const id = await api.create({ name: name.trim(), soul })
       setNewId(id)
       setIds(await api.list())
+      window.dispatchEvent(new Event('companion-roster-changed'))
       setOpen(false)
       setName('')
       setSoul(readCompanionProfile(undefined).soul)
@@ -66,9 +99,56 @@ export function CompanionRoster(): React.JSX.Element | null {
           {error}
         </p>
       )}
-      {ids.map((id) => (
-        <CompanionSidebar key={id} id={id} initiallyOpen={id === newId} />
-      ))}
+      <div className="space-y-1 px-2">
+        <Input
+          aria-label="搜索伙伴"
+          placeholder="搜索伙伴"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <select
+          aria-label="伙伴列表范围"
+          className="w-full rounded-md border border-input bg-background p-1 text-xs"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <option value="active">伙伴</option>
+          <option value="hidden">隐藏</option>
+          <option value="paused">暂停</option>
+          <option value="archived">归档</option>
+          <option value="deleted">回收站</option>
+        </select>
+      </div>
+      {ids
+        .filter((id) => {
+          const records = states[id]?.records ?? []
+          const prefs = companionPreferences(records)
+          const name = readCompanionProfile(
+            records.find((r) => r.kind === 'profile' && r.key === 'identity')?.text
+          ).name
+          return (
+            name.toLocaleLowerCase().includes(query.toLocaleLowerCase()) &&
+            (filter === 'hidden'
+              ? prefs.hidden && prefs.status === 'active'
+              : prefs.status === filter && (filter !== 'active' || !prefs.hidden))
+          )
+        })
+        .sort((a, b) => {
+          const ar = states[a]?.records ?? [],
+            br = states[b]?.records ?? []
+          const ap = companionPreferences(ar),
+            bp = companionPreferences(br)
+          return (
+            Number(bp.pinned) - Number(ap.pinned) ||
+            (companionActivity(br, '').latest?.createdAt ?? '').localeCompare(
+              companionActivity(ar, '').latest?.createdAt ?? ''
+            )
+          )
+        })
+        .map((id) => (
+          <CompanionSidebar key={id} id={id} snapshot={states[id]} initiallyOpen={id === newId} />
+        ))}
+      <CompanionGroups states={states} />
       <Dialog
         open={open}
         onOpenChange={(value) => {

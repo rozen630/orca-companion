@@ -1,5 +1,12 @@
+import { CompanionSkills } from './CompanionSkills'
+import { CompanionVoice } from './CompanionVoice'
+import { CompanionRoutines } from './CompanionRoutines'
+import { CompanionCapabilities } from './CompanionCapabilities'
+import { CompanionActions } from './CompanionActions'
+import { CompanionRecords } from './CompanionRecords'
+import { companionPreferences, companionActivity } from '../../../../shared/companion-preferences'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { RefreshCw, Plus, Trash2, Settings2 } from 'lucide-react'
+import { Settings2 } from 'lucide-react'
 import { scopedCompanionApi } from './scoped-companion-api'
 import { useAppStore } from '@/store'
 import { structuredChatTabBySessionId } from '@/lib/structured-chat-tab-index'
@@ -7,8 +14,6 @@ import { readCompanionProfile } from '../../../../shared/companion-profile'
 import { Button } from '@/components/ui/button'
 import { CompanionProfile } from './CompanionProfile'
 import { hasMacTrafficLights } from '@/app-shell/app-window-chrome'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Sheet,
   SheetContent,
@@ -17,30 +22,25 @@ import {
   SheetDescription
 } from '@/components/ui/sheet'
 import { openCompanionChat } from './open-companion-chat'
-import { createBrowserUuid } from '@/lib/browser-uuid'
-import type {
-  CompanionRecord,
-  CompanionState,
-  CompanionWrite
-} from '../../../../shared/companion-api'
+import type { CompanionState, CompanionWrite } from '../../../../shared/companion-api'
 
 export function CompanionSidebar({
   id,
-  initiallyOpen = false
+  initiallyOpen = false,
+  snapshot
 }: {
   id: string
   initiallyOpen?: boolean
+  snapshot?: CompanionState
 }): React.JSX.Element | null {
   const manager = window.api.companion
   const api = useMemo(() => (manager ? scopedCompanionApi(manager, id) : undefined), [manager, id])
   const [open, setOpen] = useState(initiallyOpen)
-  const [state, setState] = useState<CompanionState | null>(null)
+  const [localState, setState] = useState<CompanionState | null>(null)
+  const state =
+    snapshot && (!localState || snapshot.eventCount > localState.eventCount) ? snapshot : localState
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [query, setQuery] = useState('')
-  const [editing, setEditing] = useState<{ record: CompanionRecord; text: string } | null>(null)
-  const [kind, setKind] = useState<'memory' | 'task' | 'conversation'>('memory')
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
   const tabs = useAppStore((s) => s.unifiedTabsByWorktree)
   const run = useCallback(async (action: () => Promise<CompanionState>) => {
@@ -48,6 +48,7 @@ export function CompanionSidebar({
     setError('')
     try {
       setState(await action())
+      window.dispatchEvent(new Event('companion-roster-changed'))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -61,6 +62,8 @@ export function CompanionSidebar({
   }, [api, open, run])
   const profile = state?.records.find((r) => r.kind === 'profile' && r.key === 'identity')
   const name = readCompanionProfile(profile?.deleted ? undefined : profile?.text).name
+  const preferences = companionPreferences(state?.records ?? [])
+  const activity = companionActivity(state?.records ?? [], preferences.readAt)
   const canonical = state?.canonical
   useEffect(() => {
     if (!canonical) {
@@ -74,23 +77,20 @@ export function CompanionSidebar({
   if (!api) {
     return null
   }
-  const records =
-    state?.records.filter(
-      (r) =>
-        (!r.deleted || r.conflicts.length > 0) &&
-        r.kind === kind &&
-        r.text.toLocaleLowerCase().includes(query.toLocaleLowerCase())
-    ) ?? []
-  const write = (input: CompanionWrite): Promise<void> => run(() => api.write(input))
-  const remove = (record: CompanionRecord): Promise<void> =>
-    write({
-      kind: record.kind,
-      key: record.key,
-      text: '',
-      source: '用户在伙伴侧栏删除',
-      parents: record.heads,
-      deleted: true
-    })
+  const write = async (input: CompanionWrite): Promise<boolean> => {
+    setBusy(true)
+    setError('')
+    try {
+      setState(await api.write(input))
+      window.dispatchEvent(new Event('companion-roster-changed'))
+      return true
+    } catch (cause) {
+      setError(String(cause))
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
   async function chat(): Promise<void> {
     if (!api) {
       return
@@ -99,7 +99,21 @@ export function CompanionSidebar({
     setError('')
     try {
       await openCompanionChat(api)
-      setState(await api.read())
+      const fresh = await api.read()
+      const pref = fresh.records.find((r) => r.kind === 'profile' && r.key === 'preferences')
+      setState(
+        await api.write({
+          kind: 'profile',
+          key: 'preferences',
+          text: JSON.stringify({
+            ...companionPreferences(fresh.records),
+            readAt: new Date().toISOString()
+          }),
+          parents: pref?.heads ?? [],
+          source: '用户阅读伙伴聊天'
+        })
+      )
+      window.dispatchEvent(new Event('companion-roster-changed'))
       setOpen(false)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
@@ -115,7 +129,7 @@ export function CompanionSidebar({
         <div className="flex items-center gap-1 pl-4">
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || preferences.status !== 'active'}
             aria-label={`与${name}聊天`}
             aria-current={canonical?.worktreeId === activeWorktreeId ? 'page' : undefined}
             onClick={() => void chat()}
@@ -125,9 +139,28 @@ export function CompanionSidebar({
               aria-hidden
               className="flex size-6 shrink-0 items-center justify-center rounded-full bg-worktree-sidebar-accent text-xs"
             >
-              {Array.from(name)[0]}
+              {preferences.avatar ? (
+                <img src={preferences.avatar} alt="" className="size-6 rounded-full object-cover" />
+              ) : (
+                Array.from(name)[0]
+              )}
             </span>
-            <span className="truncate">{name}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">
+                {preferences.pinned ? '⌖ ' : ''}
+                {name}
+              </span>
+              {activity.latest && (
+                <span className="block truncate text-xs text-muted-foreground">
+                  {activity.latest.text}
+                </span>
+              )}
+            </span>
+            {activity.unread > 0 && (
+              <span aria-label={`${activity.unread} 条未读`} className="text-xs">
+                {activity.unread}
+              </span>
+            )}
           </button>
           <Button
             size="icon-sm"
@@ -137,6 +170,15 @@ export function CompanionSidebar({
           >
             <Settings2 className="size-4" />
           </Button>
+          <CompanionActions
+            id={id}
+            name={name}
+            state={state}
+            api={api}
+            changed={() => {
+              void run(api.read)
+            }}
+          />
         </div>
       )}
       <Sheet open={open} onOpenChange={setOpen}>
@@ -160,195 +202,36 @@ export function CompanionSidebar({
               key={profile?.deleted ? 'new' : (profile?.text ?? 'new')}
               profile={profile}
               busy={busy}
-              canChat={true}
+              canChat={preferences.status === 'active'}
               onWrite={write}
               onChat={chat}
             />
-            <section className="space-y-3 border-t border-border pt-4">
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant={kind === 'memory' ? 'secondary' : 'ghost'}
-                  onClick={() => setKind('memory')}
-                >
-                  记忆
-                </Button>
-                <Button
-                  size="sm"
-                  variant={kind === 'task' ? 'secondary' : 'ghost'}
-                  onClick={() => setKind('task')}
-                >
-                  待办
-                </Button>
-                <Button
-                  size="sm"
-                  variant={kind === 'conversation' ? 'secondary' : 'ghost'}
-                  onClick={() => setKind('conversation')}
-                >
-                  对话
-                </Button>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  aria-label="刷新伙伴资料"
-                  disabled={busy}
-                  onClick={() => void run(api.read)}
-                >
-                  <RefreshCw className="size-4" />
-                </Button>
-              </div>
-              <Input
-                aria-label="搜索本机记录"
-                placeholder="搜索本机记录"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
+            {state && (
+              <CompanionCapabilities
+                key={state.records.find((r) => r.key === 'preferences')?.id ?? 'new'}
+                state={state}
+                busy={busy}
+                write={write}
               />
-              {kind !== 'conversation' && (
-                <Textarea
-                  aria-label={kind === 'memory' ? '新记忆' : '新待办'}
-                  placeholder={kind === 'memory' ? '你希望我记住什么？' : '有什么事需要继续推进？'}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  maxLength={10000}
-                />
-              )}
-              {kind !== 'conversation' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !draft.trim()}
-                  onClick={() =>
-                    void run(async () => {
-                      const next = await api.write({
-                        kind,
-                        key: createBrowserUuid(),
-                        text: draft,
-                        source: '用户在伙伴侧栏添加'
-                      })
-                      setDraft('')
-                      return next
-                    })
-                  }
-                >
-                  <Plus className="size-4" />
-                  添加
-                </Button>
-              )}
-              {records.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {query ? '没有找到匹配的记录。' : '这里还没有记录。'}
-                </p>
-              )}
-              {records.map((record) => (
-                <article
-                  key={`${record.kind}:${record.key}`}
-                  className="space-y-2 rounded-md border border-border p-3"
-                >
-                  {kind === 'conversation' && (
-                    <p className="text-xs text-muted-foreground">
-                      {record.source === 'user' ? '你' : '伙伴'}
-                    </p>
-                  )}
-                  {editing?.record.key === record.key && editing.record.kind === record.kind ? (
-                    <div className="space-y-2">
-                      <Textarea
-                        aria-label="编辑记录"
-                        value={editing.text}
-                        maxLength={10000}
-                        onChange={(e) => setEditing({ ...editing, text: e.target.value })}
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          disabled={busy || !editing.text.trim()}
-                          onClick={() =>
-                            void run(async () => {
-                              const next = await api.write({
-                                kind: editing.record.kind,
-                                key: editing.record.key,
-                                text: editing.text,
-                                source: '用户在伙伴侧栏修改',
-                                parents: editing.record.heads
-                              })
-                              setEditing(null)
-                              return next
-                            })
-                          }
-                        >
-                          保存修改
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={busy}
-                          onClick={() => setEditing(null)}
-                        >
-                          取消
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="whitespace-pre-wrap break-words text-sm">
-                      {record.deleted ? '此设备删除了这条记录' : record.text}
-                    </p>
-                  )}
-                  {kind !== 'conversation' && !record.deleted && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => setEditing({ record, text: record.text })}
-                    >
-                      编辑
-                    </Button>
-                  )}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(record.createdAt).toLocaleString()}
-                    </span>
-                    {kind !== 'conversation' && (
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        aria-label="删除这条记录"
-                        disabled={busy}
-                        onClick={() => void remove(record)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  {record.conflicts.length > 0 && (
-                    <div className="space-y-2 border-t border-border pt-2">
-                      <p className="text-xs text-muted-foreground">
-                        这条记录有并发修改，选择要保留的版本：
-                      </p>
-                      {[record, ...record.conflicts].map((version) => (
-                        <Button
-                          className="h-auto whitespace-normal text-left"
-                          key={version.id}
-                          size="sm"
-                          variant="outline"
-                          disabled={busy}
-                          onClick={() =>
-                            void write({
-                              kind: record.kind,
-                              key: record.key,
-                              text: version.text,
-                              deleted: version.deleted,
-                              parents: record.heads,
-                              source: '用户解决同步冲突'
-                            })
-                          }
-                        >
-                          {version.deleted ? '保留删除' : version.text.slice(0, 100)}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </article>
-              ))}
-            </section>
+            )}
+            {state && (
+              <CompanionRoutines
+                id={id}
+                api={api}
+                state={state}
+                changed={() => void run(api.read)}
+              />
+            )}
+            {state && <CompanionVoice api={api} state={state} />}
+            {state && (
+              <CompanionSkills id={id} api={api} state={state} changed={() => void run(api.read)} />
+            )}
+            <CompanionRecords
+              records={state?.records ?? []}
+              busy={busy}
+              write={write}
+              refresh={() => void run(api.read)}
+            />
             <p className="text-xs text-muted-foreground">
               资料和长期记忆保存在本机，退出或重启后仍可读取。伙伴使用自己的工作区，不需要选择项目。
             </p>

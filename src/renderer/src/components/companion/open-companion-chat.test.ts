@@ -43,6 +43,17 @@ const state: CompanionState = {
 }
 function api(current = state): CompanionApi {
   return {
+    routines: {
+      list: vi.fn(),
+      save: vi.fn(),
+      run: vi.fn(),
+      stop: vi.fn(),
+      remove: vi.fn(),
+      undo: vi.fn()
+    },
+    groups: { list: vi.fn(), save: vi.fn(), send: vi.fn(), stop: vi.fn() },
+    saveSkill: vi.fn(),
+    duplicate: vi.fn(),
     list: vi.fn(async () => ['default']),
     create: vi.fn(async () => 'new-companion'),
     prepare: vi.fn(async () => current),

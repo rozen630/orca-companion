@@ -1,3 +1,4 @@
+import { CompanionMobilePanel } from './CompanionMobilePanel'
 import { Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { hostScreenStyles as styles } from './host-screen-styles'
@@ -20,6 +21,10 @@ export function HostScreenView({ controller }: { controller: HostScreenControlle
       <SafeAreaView style={styles.topChromeSafeArea} edges={['top']}>
         <HostScreenHeader controller={controller} />
       </SafeAreaView>
+      <CompanionMobilePanel
+        hostId={controller.hostId}
+        navigate={controller.actions.navigateFromHostList}
+      />
       <HostWorkspaceList controller={controller} />
       <HostScreenOverlays controller={controller} />
     </View>
