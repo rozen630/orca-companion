@@ -51,7 +51,7 @@ function api(current = state): CompanionApi {
       remove: vi.fn(),
       undo: vi.fn()
     },
-    groups: { list: vi.fn(), save: vi.fn(), send: vi.fn(), stop: vi.fn() },
+    groups: { list: vi.fn(), save: vi.fn(), saveTopic: vi.fn(), send: vi.fn(), stop: vi.fn() },
     saveSkill: vi.fn(),
     duplicate: vi.fn(),
     list: vi.fn(async () => ['default']),

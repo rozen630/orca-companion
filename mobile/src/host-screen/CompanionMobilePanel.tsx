@@ -30,11 +30,13 @@ export function CompanionMobilePanel({
   const [groups, setGroups] = useState<CompanionGroup[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [groupId, setGroupId] = useState<string | null>(null)
+  const [topicId, setTopicId] = useState<string | null>(null)
   const [mentions, setMentions] = useState<string[]>([])
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const group = groups.find((g) => g.id === groupId)
+  const topic = group?.topics.find((t) => t.id === topicId) ?? group?.topics[0]
   const selectedCompanion = companions.find((c) => c.id === selected)
   const name = (state: State) =>
     readCompanionProfile(
@@ -63,14 +65,20 @@ export function CompanionMobilePanel({
     }
   }
   async function send() {
-    if (!client || !group) {
+    if (!client || !group || !topic) {
       return
     }
     setBusy(true)
     setError('')
     try {
       companionGroupSend.interpret(
-        await companionGroupSend.request(client, { id: group.id, text, mentions, delegate: false })
+        await companionGroupSend.request(client, {
+          id: group.id,
+          topicId: topic.id,
+          text,
+          mentions,
+          delegate: false
+        })
       )
       setText('')
       await refresh()
@@ -175,6 +183,7 @@ export function CompanionMobilePanel({
                   key={g.id}
                   onPress={() => {
                     setGroupId(g.id)
+                    setTopicId(g.topics[0]?.id ?? null)
                     setSelected(null)
                     setMentions([])
                   }}
@@ -187,7 +196,23 @@ export function CompanionMobilePanel({
               ))}
             {group && (
               <View style={styles.content}>
-                {group.messages.map((m) => (
+                <View style={styles.row}>
+                  {group.topics
+                    .filter((t) => !t.archived)
+                    .map((entry) => (
+                      <Pressable
+                        key={entry.id}
+                        style={styles.button}
+                        onPress={() => setTopicId(entry.id)}
+                      >
+                        <Text style={styles.text}>
+                          {topic?.id === entry.id ? '✓ ' : ''}
+                          {entry.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                </View>
+                {topic?.messages.map((m) => (
                   <View key={m.id} style={styles.card}>
                     <Text style={styles.muted}>{m.name}</Text>
                     <Text style={m.error ? styles.error : styles.text}>{m.text}</Text>
@@ -226,7 +251,7 @@ export function CompanionMobilePanel({
                 />
                 <Pressable
                   style={styles.button}
-                  disabled={busy || group.running || !text.trim()}
+                  disabled={busy || topic?.running || !text.trim()}
                   onPress={() => void send()}
                 >
                   <Text style={styles.text}>发送</Text>

@@ -13,6 +13,9 @@ import type { CompanionState } from '../../../../shared/companion-api'
 import type { CompanionGroup } from '../../../../shared/companion-groups'
 import { readCompanionProfile } from '../../../../shared/companion-profile'
 import { CompanionGroupOptions, CompanionGroupExecutions } from './CompanionMemberPicker'
+import { CompanionGroupTopics } from './CompanionGroupTopics'
+import { CompanionGroupJobs } from './CompanionGroupJobs'
+import { CompanionGroupList } from './CompanionGroupList'
 
 export function CompanionGroups({
   states
@@ -22,6 +25,7 @@ export function CompanionGroups({
   const api = window.api.companion!.groups
   const [groups, setGroups] = useState<CompanionGroup[]>([])
   const [selected, setSelected] = useState<string | null>(null)
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
   const [members, setMembers] = useState<string[]>([])
@@ -34,6 +38,7 @@ export function CompanionGroups({
   const [busy, setBusy] = useState(false)
   const [archived, setArchived] = useState(false)
   const group = groups.find((g) => g.id === selected)
+  const topic = group?.topics.find((entry) => entry.id === selectedTopic) ?? group?.topics[0]
   const label = (id: string) =>
     readCompanionProfile(
       states[id]?.records.find((r) => r.kind === 'profile' && r.key === 'identity')?.text
@@ -98,23 +103,16 @@ export function CompanionGroups({
       <Button size="sm" variant="ghost" onClick={() => setArchived(!archived)}>
         {archived ? '返回群聊' : '已归档群聊'}
       </Button>
-      {groups
-        .filter((g) => g.archived === archived)
-        .map((g) => (
-          <Button
-            key={g.id}
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={() => {
-              setSelected(g.id)
-              setMentions([])
-              setText('')
-            }}
-          >
-            {g.name}
-            {g.running ? ' · 讨论中' : ''}
-          </Button>
-        ))}
+      <CompanionGroupList
+        groups={groups}
+        archived={archived}
+        onSelect={(groupId, topicId) => {
+          setSelected(groupId)
+          setSelectedTopic(topicId)
+          setMentions([])
+          setText('')
+        }}
+      />
       {error && !selected && !editing && (
         <p role="alert" className="text-xs text-destructive">
           {error}
@@ -138,6 +136,17 @@ export function CompanionGroups({
             </DialogHeader>
             {group && (
               <>
+                <CompanionGroupTopics
+                  group={group}
+                  selected={topic?.id ?? null}
+                  api={api}
+                  onSelect={(id) => {
+                    setSelectedTopic(id)
+                    setMentions([])
+                    setText('')
+                  }}
+                  onChanged={async () => setGroups(await api.list())}
+                />
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
@@ -162,7 +171,7 @@ export function CompanionGroups({
                   className="max-h-96 space-y-3 overflow-y-auto scrollbar-sleek"
                   aria-live="polite"
                 >
-                  {group.messages.map((m) => (
+                  {topic?.messages.map((m) => (
                     <article key={m.id} className="rounded-md border border-border p-3">
                       <p className="text-xs text-muted-foreground">
                         {m.name} · {new Date(m.at).toLocaleString()}
@@ -195,10 +204,11 @@ export function CompanionGroups({
                 </div>
                 <CompanionGroupExecutions
                   states={states}
-                  sessions={group.sessions}
+                  sessions={topic?.sessions ?? {}}
                   label={label}
                   onOpen={() => setSelected(null)}
                 />
+                {topic && <CompanionGroupJobs topic={topic} label={label} />}
                 <Textarea
                   aria-label="群聊消息"
                   value={text}
@@ -216,21 +226,24 @@ export function CompanionGroups({
                 </label>
                 <div className="flex gap-2">
                   <Button
-                    disabled={busy || group.running || group.archived || !text.trim()}
+                    disabled={busy || topic?.running || group.archived || !text.trim()}
                     onClick={() =>
                       void action(async () => {
-                        await api.send(group.id, text, mentions, delegate)
+                        if (!topic) {
+                          throw new Error('请选择群聊话题')
+                        }
+                        await api.send(group.id, topic.id, text, mentions, delegate)
                         setText('')
                       })
                     }
                   >
                     发送
                   </Button>
-                  {group.running && (
+                  {topic?.running && (
                     <Button
                       variant="outline"
                       disabled={busy}
-                      onClick={() => void action(() => api.stop(group.id))}
+                      onClick={() => void action(() => api.stop(group.id, topic.id))}
                     >
                       停止讨论
                     </Button>
@@ -276,6 +289,7 @@ export function CompanionGroups({
               void action(async () => {
                 const saved = await api.save({ id: group?.id, name, members, mode, speaking })
                 setSelected(saved.id)
+                setSelectedTopic(saved.topics[0]?.id ?? null)
                 setEditing(false)
               })
             }

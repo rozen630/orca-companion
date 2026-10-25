@@ -24,6 +24,7 @@ import {
 } from '../bundled-skill-plan'
 import {
   CompanionGroupSendParams,
+  CompanionGroupStopParams,
   CompanionIdParams,
   CompanionListParams,
   CompanionWriteParams
@@ -894,7 +895,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'clipboard.startImageUpload': StartImageUpload,
   'companion.groups.list': CompanionListParams,
   'companion.groups.send': CompanionGroupSendParams,
-  'companion.groups.stop': CompanionIdParams,
+  'companion.groups.stop': CompanionGroupStopParams,
   'companion.list': CompanionListParams,
   'companion.read': CompanionIdParams,
   'companion.write': CompanionWriteParams,

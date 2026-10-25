@@ -4,7 +4,8 @@ import {
   CompanionListParams,
   CompanionIdParams,
   CompanionWriteParams,
-  CompanionGroupSendParams
+  CompanionGroupSendParams,
+  CompanionGroupStopParams
 } from '../../../../shared/companion-rpc-contract'
 export const COMPANION_METHODS = [
   defineMethod({
@@ -35,12 +36,13 @@ export const COMPANION_METHODS = [
     name: 'companion.groups.send',
     permission: 'workspace',
     params: CompanionGroupSendParams,
-    handler: (p) => companionHostAccess().groups.send(p.id, p.text, p.mentions, p.delegate)
+    handler: (p) =>
+      companionHostAccess().groups.send(p.id, p.topicId, p.text, p.mentions, p.delegate)
   }),
   defineMethod({
     name: 'companion.groups.stop',
     permission: 'workspace',
-    params: CompanionIdParams,
-    handler: (p) => companionHostAccess().groups.stop(p.id)
+    params: CompanionGroupStopParams,
+    handler: (p) => companionHostAccess().groups.stop(p.id, p.topicId)
   })
 ]

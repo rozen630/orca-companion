@@ -71,13 +71,17 @@ export function registerCompanionHandlers(): void {
     trusted(event)
     return groups.save(input)
   })
-  ipcMain.handle('companion:groups:send', (event, id, text, mentions, delegate) => {
+  ipcMain.handle('companion:groups:saveTopic', (event, id, name, topicId) => {
     trusted(event)
-    return groups.send(id, text, mentions, delegate)
+    return groups.saveTopic(id, name, topicId)
   })
-  ipcMain.handle('companion:groups:stop', (event, id) => {
+  ipcMain.handle('companion:groups:send', (event, id, topicId, text, mentions, delegate) => {
     trusted(event)
-    return groups.stop(id)
+    return groups.send(id, topicId, text, mentions, delegate)
+  })
+  ipcMain.handle('companion:groups:stop', (event, id, topicId) => {
+    trusted(event)
+    return groups.stop(id, topicId)
   })
   ipcMain.handle('companion:list', (event) => {
     trusted(event)

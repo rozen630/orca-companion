@@ -14,9 +14,11 @@ export const companionApi: CompanionApi = {
   groups: {
     list: () => ipcRenderer.invoke('companion:groups:list'),
     save: (input) => ipcRenderer.invoke('companion:groups:save', input),
-    send: (id, text, mentions, delegate) =>
-      ipcRenderer.invoke('companion:groups:send', id, text, mentions, delegate),
-    stop: (id) => ipcRenderer.invoke('companion:groups:stop', id)
+    saveTopic: (id, name, topicId) =>
+      ipcRenderer.invoke('companion:groups:saveTopic', id, name, topicId),
+    send: (id, topicId, text, mentions, delegate) =>
+      ipcRenderer.invoke('companion:groups:send', id, topicId, text, mentions, delegate),
+    stop: (id, topicId) => ipcRenderer.invoke('companion:groups:stop', id, topicId)
   },
   duplicate: (id) => ipcRenderer.invoke('companion:duplicate', id),
   list: () => ipcRenderer.invoke('companion:list'),

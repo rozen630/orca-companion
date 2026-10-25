@@ -14,10 +14,12 @@ export const CompanionWriteParams = CompanionIdParams.extend({
     .strict()
 })
 export const CompanionGroupSendParams = CompanionIdParams.extend({
+  topicId: z.string().uuid(),
   text: z.string().min(1).max(8000),
   mentions: z.array(z.string().min(1).max(100)).max(6),
   delegate: z.boolean()
 })
+export const CompanionGroupStopParams = CompanionIdParams.extend({ topicId: z.string().uuid() })
 export const CompanionMobileStateSchema = z.object({
   canonical: z
     .object({ sessionId: z.string(), worktreeId: z.string(), tabId: z.string() })
